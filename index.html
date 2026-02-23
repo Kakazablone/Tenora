@@ -1,1 +1,141 @@
 
+<!DOCTYPE html>
+<html style="background-color: #ffffff;">
+<head>
+  <title>Tenora</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="Tenora Icon.jpg">
+  
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+  <style>
+    body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #ffffff; }
+
+    /* STAGE 1: SYSTEM HAND-OFF (White) */
+    #white-splash {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: #ffffff;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+      transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #white-splash img { width: 160px; height: auto; opacity: 0.9; }
+
+    /* STAGE 2: PREMIUM LOADER (Gradient) */
+    #gradient-loader {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(135deg, #2c3e50, #18bc9c) fixed;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 50; transition: opacity 1s ease-in-out;
+    }
+
+    /* 60% Centered Container for Taglines */
+    .tagline-container { 
+      width: 60%;
+      height: 40%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      color: white;
+    }
+
+  .tag {
+      display: block;
+      font-size: 13px;
+      font-weight: 300;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      margin: 12px 0;
+      opacity: 0;
+      transform: translateY(15px);
+      /* Reduced from 1.2s to 0.8s for speed */
+      transition: all 0.8s cubic-bezier(0.2, 0, 0, 1); 
+    }
+
+    /* Controlled reveal via Javascript */
+    .tag.visible {
+      opacity: 0.8;
+      transform: translateY(0);
+    }
+
+    /* STAGE 3: THE APP (Script) */
+    iframe { 
+      position: absolute; top: 0; left: 0; border: none; width: 100vw; height: 100vh; 
+      z-index: 10; opacity: 0; 
+      transform: scale(0.98); /* App starts slightly smaller and grows into view */
+      transition: opacity 1.2s ease, transform 1.2s cubic-bezier(0.2, 0, 0, 1);
+    }
+    iframe.active { opacity: 1; transform: scale(1); }
+
+    .hidden { opacity: 0 !important; pointer-events: none; }
+  </style>
+</head>
+<body>
+
+  <div id="white-splash">
+    <img src="Tenora Icon.jpg" alt="Tenora">
+  </div>
+
+  <div id="gradient-loader">
+    <div class="tagline-container">
+      <span class="tag" id="tag1">Control</span>
+      <span class="tag" id="tag2">Clarity</span>
+      <span class="tag" id="tag3">Confidence</span>
+    </div>
+  </div>
+
+  <iframe id="appFrame"></iframe>
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwEeKVc9JQv55PWmqOYOdLij3lU22lg1RKnHWoVU29fmzxppKXUxLSAePQ_4ZGw1v8o/exec";
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    function init() {
+      const splash = document.getElementById('white-splash');
+      const loader = document.getElementById('gradient-loader');
+      const frame = document.getElementById('appFrame');
+      
+      const tags = [
+        document.getElementById('tag1'),
+        document.getElementById('tag2'),
+        document.getElementById('tag3')
+      ];
+    
+      // 1. Quick hand-off from white splash to gradient
+      setTimeout(() => {
+        splash.classList.add('hidden');
+        
+        // 2. Reveal words one-by-one (350ms apart)
+        // Word 1 starts @ 0ms, Word 2 @ 350ms, Word 3 @ 700ms
+        tags.forEach((tag, index) => {
+          setTimeout(() => {
+            tag.classList.add('visible');
+          }, 350 * index); 
+        });
+    
+        if (isIOS) {
+          // Redirect iOS after the 1500ms animation
+          setTimeout(() => { window.location.replace(SCRIPT_URL); }, 2000);
+        } else {
+          frame.src = SCRIPT_URL;
+          frame.onload = function() {
+            // Transition to Script exactly when animation ends
+            setTimeout(() => {
+              loader.classList.add('hidden');
+              frame.classList.add('active');
+            }, 1500); // This matches your 1500ms wait time
+          };
+        }
+      }, 800); // Delay before gradient starts (time logo stays on screen)
+    }
+
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>
+
