@@ -1,1 +1,16 @@
-
+{
+  "short_name": "Sambar",
+  "name": "",
+  "icons": [
+    {
+      "src": "Tenora Icon.jpg",
+      "type": "image/jpg",
+      "sizes": "512x512",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "index.html",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "theme_color": "#ffffff"
+}
