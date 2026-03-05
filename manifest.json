@@ -9,7 +9,7 @@
       "purpose": "any"
     }
   ],
-  "start_url": ".",
+  "start_url": "./",
   "background_color": "#ffffff",
   "display": "standalone",
   "scope": "./",
