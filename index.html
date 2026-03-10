@@ -10,50 +10,51 @@
   <meta name="theme-color" content="#2c3e50">
 
   <style>
-    /* 1. FONT & BASE: Reverted to Original Clean SaaS Font */
+    /* 1. PREVENT WHITE FLASH: The base of the whole page is now your theme color */
     body, html { 
       margin: 0; padding: 0; height: 100%; width: 100%; 
-      overflow: hidden; background: #ffffff; 
+      overflow: hidden; 
+      background-color: #2c3e50; /* Match theme exactly */
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
-    /* 2. GRADIENT LOADER */
+    /* 2. GRADIENT LOADER: Sits on top */
     #gradient-loader {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: linear-gradient(135deg, #2c3e50, #18bc9c) fixed;
       display: flex; align-items: center; justify-content: center;
-      z-index: 50; transition: opacity 0.6s ease-in-out;
+      z-index: 100; 
+      transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1); /* Smooth cross-fade */
     }
 
-    .tagline-container { text-align: center; color: white; padding-bottom: 20px; }
+    .tagline-container { text-align: center; color: white; }
     
     .tag {
-      display: block; 
-      font-size: 13px; 
-      font-weight: 300; 
-      letter-spacing: 0.4em;
-      text-transform: uppercase; 
-      margin: 15px 0; 
-      /* CRITICAL FIX: Ensure they start completely invisible and shifted down */
+      display: block; font-size: 13px; font-weight: 300; letter-spacing: 0.4em;
+      text-transform: uppercase; margin: 15px 0; 
       opacity: 0; 
-      transform: translateY(15px);
-      transition: all 0.7s cubic-bezier(0.2, 0, 0, 1); 
+      transform: translateY(20px);
+      transition: all 0.8s cubic-bezier(0.2, 0, 0, 1); 
     }
     
-    /* Animation Class */
-    .tag.visible { opacity: 0.85; transform: translateY(0); }
+    .tag.visible { opacity: 0.8; transform: translateY(0); }
 
-    /* 3. THE APP FRAME */
+    /* 3. THE IFRAME: Starts invisible and scaled up slightly */
     iframe { 
       position: absolute; top: 0; left: 0; border: none; width: 100vw; height: 100vh; 
-      z-index: 10; opacity: 0; transform: scale(1.01);
-      /* CRITICAL FIX: Matches theme to kill the 'white flash' before the app renders */
-      background-color: #2c3e50; 
-      transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0, 0, 1);
+      z-index: 10; 
+      opacity: 0; 
+      transform: scale(1.05);
+      transition: opacity 1.2s ease, transform 1.2s cubic-bezier(0.2, 0, 0, 1);
+      pointer-events: none; /* Disable interaction until visible */
     }
     
-    iframe.active { opacity: 1; transform: scale(1); }
-    .hidden { opacity: 0 !important; pointer-events: none; }
+    /* Reveal state */
+    iframe.active { 
+      opacity: 1; 
+      transform: scale(1); 
+      pointer-events: all;
+    }
   </style>
 </head>
 <body>
@@ -72,68 +73,64 @@
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxtswzQfmFNspjOvb2RyANolbfnU9zJrUmCdkN5U9uZU58g0QF-ZAJlBtywGg9rDT4q/exec";
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     
-    // CONFIG: Adjusted delays for "OS-to-Branding" handoff
-    const START_DELAY = 450; // Pause after OS splash clears to ensure we see the animation
-    const STAGGER = 300;     // Time between words
-
-    let animationFinished = false;
-    let scriptLoaded = false;
+    let animationDone = false;
+    let scriptReady = false;
 
     const frame = document.getElementById('appFrame');
     const loader = document.getElementById('gradient-loader');
 
-    // 1. DISPATCH SCRIPT IMMEDIATELY
-    if (!isIOS) { 
-      frame.src = SCRIPT_URL; 
+    // --- STEP 1: LOAD SCRIPT IMMEDIATELY ---
+    if (!isIOS) {
+      frame.src = SCRIPT_URL;
       frame.onload = () => {
-        scriptLoaded = true;
-        checkReadyState();
+        scriptReady = true;
+        checkHandOff();
       };
     }
 
-    // 2. STAGGERED ANIMATION LOGIC
-    function runAnimations() {
+    // --- STEP 2: START ANIMATION IMMEDIATELY ---
+    // We run this as an IIFE so it doesn't wait for any "load" events
+    (function runSequence() {
       const tags = [document.getElementById('tag1'), document.getElementById('tag2'), document.getElementById('tag3')];
-    
-      // Initial wait so the user perceives the gradient before words fly in
-      setTimeout(() => {
-        tags.forEach((tag, index) => {
-          setTimeout(() => { 
-            tag.classList.add('visible'); 
-            
-            // Final word check
-            if(index === 2) {
-              setTimeout(() => {
-                animationFinished = true;
-                checkReadyState();
-              }, 800); 
-            }
-          }, STAGGER * index); 
-        });
-      }, START_DELAY);
+      
+      // Delay first word just slightly (200ms) to allow OS Splash to fade
+      tags.forEach((tag, index) => {
+        setTimeout(() => {
+          tag.classList.add('visible');
+          
+          // Once the last word "Confidence" is settled:
+          if (index === 2) {
+            setTimeout(() => {
+              animationDone = true;
+              checkHandOff();
+            }, 1000); // Hold the "Confidence" state for 1s
+          }
+        }, 200 + (400 * index));
+      });
 
       if (isIOS) {
-        setTimeout(() => { window.location.replace(SCRIPT_URL); }, 1400);
+        setTimeout(() => { window.location.replace(SCRIPT_URL); }, 1500);
       }
-    }
+    })();
 
-    // 3. THE HAND-OFF GATEKEEPER
-    function checkReadyState() {
-      // If animation is done AND script has responded
-      if (animationFinished && scriptLoaded) {
-        loader.classList.add('hidden');
+    // --- STEP 3: THE HAND-OFF (The "Ease In") ---
+    function checkHandOff() {
+      // Logic: Only transition if the animation is finished AND the script is loaded.
+      // If the script is slow, it will "hold" on the final animation frame.
+      if (animationDone && scriptReady) {
+        
+        // Ease out the loader
+        loader.style.opacity = "0";
+        
+        // Ease in the app frame
         frame.classList.add('active');
-        console.log("Tenora SaaS: Hand-off complete.");
-      } 
-      // If animation is done but script is slow
-      else if (animationFinished && !scriptLoaded) {
-        document.getElementById('tag3').innerText = "Connecting...";
-        document.getElementById('tag3').style.opacity = "0.5";
+
+        // Cleanup DOM after fade
+        setTimeout(() => {
+          loader.style.display = "none";
+        }, 1200);
       }
     }
-
-    // Start as soon as the wrapper DOM is ready
-    document.addEventListener('DOMContentLoaded', runAnimations);
   </script>
 </body>
 </html>
