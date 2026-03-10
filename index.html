@@ -4,43 +4,38 @@
   <meta charset="UTF-8">
   <title>Tenora</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover">
-  
   <link rel="manifest" href="manifest.json">
-  
-  <!-- iOS "OS WIN" STRATEGY: This makes the iPhone show your logo during boot -->
   <link rel="apple-touch-icon" href="Tenora Icon.jpg">
   <link rel="apple-touch-startup-image" href="Tenora Icon.jpg"> 
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#2c3e50">
 
   <style>
-    body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: -apple-system, sans-serif; background: #ffffff; }
+    /* Critical CSS: Painted instantly */
+    body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #ffffff; }
 
-    /* STAGE 1: THE GRADIENT LOADER (Now the first thing the HTML draws) */
     #gradient-loader {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: linear-gradient(135deg, #2c3e50, #18bc9c) fixed;
       display: flex; align-items: center; justify-content: center;
-      z-index: 50; transition: opacity 0.6s ease-in-out;
+      z-index: 50;
     }
 
-    .tagline-container { text-align: center; color: white; padding-bottom: 20px; }
+    .tagline-container { text-align: center; color: white; }
     .tag {
       display: block; font-size: 13px; font-weight: 300; letter-spacing: 0.4em;
-      text-transform: uppercase; margin: 12px 0; opacity: 0;
+      text-transform: uppercase; margin: 12px 0; 
+      opacity: 0; /* Start hidden */
       transform: translateY(10px);
-      transition: all 0.6s cubic-bezier(0.2, 0, 0, 1); 
+      transition: all 0.5s cubic-bezier(0.2, 0, 0, 1); 
     }
     .tag.visible { opacity: 0.8; transform: translateY(0); }
 
     iframe { 
       position: absolute; top: 0; left: 0; border: none; width: 100vw; height: 100vh; 
-      z-index: 10; opacity: 0; transform: scale(1.02);
-      transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0, 0, 1);
+      z-index: 10; opacity: 0;
     }
-    iframe.active { opacity: 1; transform: scale(1); }
-    .hidden { opacity: 0 !important; pointer-events: none; }
+    iframe.active { opacity: 1; transition: opacity 0.8s ease; }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -62,45 +57,51 @@
     let animationFinished = false;
     let scriptLoaded = false;
 
+    // 1. FAST TRIGGER: Start loading the iframe immediately
     const frame = document.getElementById('appFrame');
-    const loader = document.getElementById('gradient-loader');
-
-    // Load Script immediately
-    if (!isIOS) { 
-      frame.src = SCRIPT_URL; 
-      frame.onload = () => { scriptLoaded = true; checkReadyState(); };
+    if (!isIOS) {
+      frame.src = SCRIPT_URL;
+      frame.onload = () => { 
+        scriptLoaded = true; 
+        checkReadyState(); 
+      };
     }
 
-    function runAnimations() {
-      const tags = [document.getElementById('tag1'), document.getElementById('tag2'), document.getElementById('tag3')];
+    // 2. IMMEDIATE ANIMATION: Runs as soon as the browser reads this line
+    // We don't wait for 'load' or 'DOMContentLoaded'
+    (function runInstantAnimations() {
+      const tags = [
+        document.getElementById('tag1'), 
+        document.getElementById('tag2'), 
+        document.getElementById('tag3')
+      ];
     
-      // Start staggering the tags immediately
       tags.forEach((tag, index) => {
+        // Reduced initial delay to 50ms to ensure the gradient paints first
         setTimeout(() => { 
           tag.classList.add('visible'); 
           if(index === 2) {
             setTimeout(() => {
               animationFinished = true;
               checkReadyState();
-            }, 700); 
+            }, 600); // Time for the last word to settle
           }
-        }, 300 * index); 
+        }, 50 + (250 * index)); 
       });
   
       if (isIOS) {
-        // iOS users get redirected while they watch the animation
-        setTimeout(() => { window.location.replace(SCRIPT_URL); }, 1300);
+        // iOS Redirect happens mid-animation for a seamless feel
+        setTimeout(() => { window.location.replace(SCRIPT_URL); }, 1100);
       }
-    }
+    })();
 
     function checkReadyState() {
+      // The app only reveals if the animation is done AND the script is ready
       if (animationFinished && (scriptLoaded || isIOS)) {
-        loader.classList.add('hidden');
+        document.getElementById('gradient-loader').classList.add('hidden');
         frame.classList.add('active');
       }
     }
-
-    window.addEventListener('load', runAnimations);
   </script>
 </body>
 </html>
