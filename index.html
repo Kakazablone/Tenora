@@ -11,19 +11,20 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <style>
-    /* 1. BASE: Match OS Splash White to prevent any flicker */
+    /* 1. BASE: White start to match OS Splash */
     body, html { 
       margin: 0; padding: 0; height: 100%; width: 100%; 
       overflow: hidden; background: #ffffff; 
-      font-family: -apple-system, sans-serif; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
     }
 
-    /* 2. GRADIENT LOADER: Sits on top */
+    /* 2. GRADIENT LOADER: The Primary Branding Layer */
     #gradient-loader {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: linear-gradient(135deg, #2c3e50, #18bc9c) fixed;
       display: flex; align-items: center; justify-content: center;
       z-index: 100; 
+      /* Extra long transition for the final 'Ease In' */
       transition: opacity 1.5s cubic-bezier(0.4, 0, 0.2, 1); 
     }
 
@@ -38,24 +39,24 @@
       margin: 18px 0; 
       opacity: 0; 
       transform: translateY(20px);
-      /* Cinematic slow fade-in */
+      /* Cinematic slow entrance */
       transition: opacity 1.5s ease-out, transform 1.2s cubic-bezier(0.2, 0, 0, 1); 
     }
     
-    /* Reveal state */
-    .tag.visible { opacity: 0.7; transform: translateY(0); }
+    /* Active State for Entrance */
+    .tag.visible { opacity: 0.75; transform: translateY(0); }
 
-    /* 3. FLOAT ANIMATION: Keeps user attention while script loads */
+    /* 3. FLOAT ANIMATION: Visual 'Heartbeat' while waiting for Script */
     .tag.floaty {
       animation: floatBreath 4s ease-in-out infinite;
     }
 
     @keyframes floatBreath {
-      0%, 100% { transform: translateY(0); opacity: 0.7; }
-      50% { transform: translateY(-6px); opacity: 0.9; }
+      0%, 100% { transform: translateY(0); opacity: 0.75; }
+      50% { transform: translateY(-6px); opacity: 0.95; }
     }
 
-    /* 4. THE APP FRAME: Scales in slightly for an 'ease-in' effect */
+    /* 4. THE LIVE APP: Scaled slightly for a zoom-out reveal */
     iframe { 
       position: absolute; top: 0; left: 0; border: none; width: 100vw; height: 100vh; 
       z-index: 10; opacity: 0; transform: scale(1.03);
@@ -86,7 +87,7 @@
     const frame = document.getElementById('appFrame');
     const loader = document.getElementById('gradient-loader');
 
-    // --- STEP 1: PARALLEL SCRIPT START ---
+    // --- STEP 1: PARALLEL SCRIPT FETCH ---
     if (!isIOS) { 
       frame.src = SCRIPT_URL; 
       frame.onload = () => {
@@ -95,52 +96,50 @@
       };
     }
 
-    // --- STEP 2: IMMEDIATE ANIMATION TRIGGER ---
-    // We start as soon as the HTML is parsed, don't wait for images/load
+    // --- STEP 2: IMMEDIATE CINEMATIC ANIMATION ---
+    // Using DOMContentLoaded to ensure we start the millisecond the HTML is parsed
     document.addEventListener('DOMContentLoaded', function() {
       const tags = [document.getElementById('tag1'), document.getElementById('tag2'), document.getElementById('tag3')];
     
-      // Start almost immediately (50ms) to replace the OS splash
+      // Start almost instantly (80ms) to take over from OS splash
       tags.forEach((tag, index) => {
         setTimeout(() => { 
           tag.classList.add('visible'); 
           
-          // Once a word has settled, make it start floating
+          // Initiate floating 'breath' loop after words settle
           setTimeout(() => { tag.classList.add('floaty'); }, 1500);
 
           if(index === 2) {
+            // Wait 2 seconds after "Confidence" appears before allowing the hand-off
             setTimeout(() => {
               animationFinished = true;
               checkReadyState();
-            }, 2000); // We've now bought roughly 4-5 seconds total
+            }, 2000); 
           }
-        }, 50 + (500 * index)); // 500ms stagger buys time but feels intentional
+        }, 80 + (500 * index)); // 500ms stagger buys time for the iframe
       });
   
       if (isIOS) {
+        // iOS standalone redirect logic
         setTimeout(() => { window.location.replace(SCRIPT_URL); }, 1500);
       }
     });
 
-    // --- STEP 3: THE SEAMLESS CROSS-FADE ---
+    // --- STEP 3: THE SEAMLESS HAND-OFF ---
     function checkReadyState() {
-      // Transition only when the animation sequence is done AND the script is ready
+      // Requirements: Animation sequence completed AND Script has responded
       if (animationFinished && scriptLoaded) {
         
-        // Loader fades to 0
+        // Cinematic cross-fade
         loader.style.opacity = "0";
-        
-        // App frame fades to 1 and scales to normal
         frame.classList.add('active');
 
-        // Cleanup DOM after the 1.5s cross-fade
+        // Clean the DOM after transition finishes
         setTimeout(() => {
           loader.style.display = "none";
         }, 1600);
-      } else if (animationFinished && !scriptLoaded) {
-        // Optional: Change the last tag if the internet is extremely slow
-        document.getElementById('tag3').innerText = "Connecting...";
       }
+      // Note: If script is slow, we simply hold on the 'Floaty' animation indefinitely
     }
   </script>
 </body>
