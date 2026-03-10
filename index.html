@@ -1,33 +1,23 @@
 <!DOCTYPE html>
-<html lang="en" style="background-color: #ffffff;">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Tenora</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover">
   
-  <!-- 1. PERFORMANCE & CONNECTIVITY -->
-  <link rel="preconnect" href="https://script.google.com">
-  <link rel="dns-prefetch" href="https://script.google.com">
-  
-  <!-- 2. PWA IDENTITY -->
   <link rel="manifest" href="manifest.json">
+  
+  <!-- iOS "OS WIN" STRATEGY: This makes the iPhone show your logo during boot -->
   <link rel="apple-touch-icon" href="Tenora Icon.jpg">
-  <meta name="theme-color" content="#2c3e50">
+  <link rel="apple-touch-startup-image" href="Tenora Icon.jpg"> 
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#2c3e50">
 
   <style>
     body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: -apple-system, sans-serif; background: #ffffff; }
 
-    /* STAGE 1: APP SHELL SPLASH (Instant via Cache) */
-    #white-splash {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: #ffffff; display: flex; align-items: center; justify-content: center;
-      z-index: 100; transition: opacity 0.4s ease-out;
-    }
-    #white-splash img { width: 120px; height: auto; }
-
-    /* STAGE 2: BRANDING LOADER (Gradient) */
+    /* STAGE 1: THE GRADIENT LOADER (Now the first thing the HTML draws) */
     #gradient-loader {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: linear-gradient(135deg, #2c3e50, #18bc9c) fixed;
@@ -44,7 +34,6 @@
     }
     .tag.visible { opacity: 0.8; transform: translateY(0); }
 
-    /* STAGE 3: THE LIVE APP (Iframe) */
     iframe { 
       position: absolute; top: 0; left: 0; border: none; width: 100vw; height: 100vh; 
       z-index: 10; opacity: 0; transform: scale(1.02);
@@ -56,12 +45,6 @@
 </head>
 <body>
 
-  <!-- Instant Cache Splash -->
-  <div id="white-splash">
-    <img src="Tenora Icon.jpg" alt="Tenora">
-  </div>
-
-  <!-- Branding Sync Stage -->
   <div id="gradient-loader">
     <div class="tagline-container">
       <span class="tag" id="tag1">Control</span>
@@ -73,7 +56,6 @@
   <iframe id="appFrame"></iframe>
 
   <script>
-    // --- CONFIGURATION ---
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxtswzQfmFNspjOvb2RyANolbfnU9zJrUmCdkN5U9uZU58g0QF-ZAJlBtywGg9rDT4q/exec";
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     
@@ -83,65 +65,38 @@
     const frame = document.getElementById('appFrame');
     const loader = document.getElementById('gradient-loader');
 
-    // 1. SERVICE WORKER REGISTRATION (App Shell Caching)
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js')
-          .then(reg => console.log('Tenora: PWA Shell Offline Ready'))
-          .catch(err => console.log('Tenora: PWA Offline Error', err));
-      });
-    }
-
-    // 2. PARALLEL TRIGGER: Start loading the Script immediately
+    // Load Script immediately
     if (!isIOS) { 
       frame.src = SCRIPT_URL; 
-      frame.onload = () => {
-        scriptLoaded = true;
-        checkReadyState();
-      };
+      frame.onload = () => { scriptLoaded = true; checkReadyState(); };
     }
 
-    // 3. ANIMATION SEQUENCE
     function runAnimations() {
-      const splash = document.getElementById('white-splash');
       const tags = [document.getElementById('tag1'), document.getElementById('tag2'), document.getElementById('tag3')];
     
-      // Quick Hand-off from logo to gradient
-      setTimeout(() => {
-        splash.classList.add('hidden');
-        
-        // Staggered tag reveal
-        tags.forEach((tag, index) => {
-          setTimeout(() => { 
-            tag.classList.add('visible'); 
-            
-            // Mark animation as complete after the last word settles
-            if(index === 2) {
-              setTimeout(() => {
-                animationFinished = true;
-                checkReadyState();
-              }, 800); 
-            }
-          }, 250 * index); 
-        });
-    
-        // iOS Strategy: Handle as a direct redirect for Fullscreen Standalone
-        if (isIOS) {
-          setTimeout(() => { window.location.replace(SCRIPT_URL); }, 1200);
-        }
-      }, 500); 
+      // Start staggering the tags immediately
+      tags.forEach((tag, index) => {
+        setTimeout(() => { 
+          tag.classList.add('visible'); 
+          if(index === 2) {
+            setTimeout(() => {
+              animationFinished = true;
+              checkReadyState();
+            }, 700); 
+          }
+        }, 300 * index); 
+      });
+  
+      if (isIOS) {
+        // iOS users get redirected while they watch the animation
+        setTimeout(() => { window.location.replace(SCRIPT_URL); }, 1300);
+      }
     }
 
-    // 4. THE GATEKEEPER
-    // Ensures the app is only shown when branding is done AND data is received.
     function checkReadyState() {
-      if (animationFinished && scriptLoaded) {
+      if (animationFinished && (scriptLoaded || isIOS)) {
         loader.classList.add('hidden');
         frame.classList.add('active');
-        console.log("Tenora SaaS: Hand-off complete.");
-      } else if (animationFinished && !scriptLoaded) {
-        // Internet is slow. Maintain professional loader.
-        document.getElementById('tag3').innerText = "Connecting...";
       }
     }
 
