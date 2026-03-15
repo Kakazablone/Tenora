@@ -23,7 +23,6 @@
       background: linear-gradient(135deg, #2c3e50, #18bc9c) fixed;
       display: flex; align-items: center; justify-content: center;
       z-index: 100; 
-      /* Extra long transition for the final 'Ease In' */
       transition: opacity 1.5s cubic-bezier(0.4, 0, 0.2, 1); 
     }
 
@@ -38,14 +37,11 @@
       margin: 18px 0; 
       opacity: 0; 
       transform: translateY(20px);
-      /* Cinematic slow entrance */
       transition: opacity 1.5s ease-out, transform 1.2s cubic-bezier(0.2, 0, 0, 1); 
     }
     
-    /* Active State for Entrance */
     .tag.visible { opacity: 0.75; transform: translateY(0); }
 
-    /* 3. FLOAT ANIMATION: Visual 'Heartbeat' while waiting for Script */
     .tag.floaty {
       animation: floatBreath 4s ease-in-out infinite;
     }
@@ -55,7 +51,6 @@
       50% { transform: translateY(-6px); opacity: 0.95; }
     }
 
-    /* 4. THE LIVE APP: Scaled slightly for a zoom-out reveal */
     iframe { 
       position: absolute; top: 0; left: 0; border: none; width: 100vw; height: 100vh; 
       z-index: 10; opacity: 0; transform: scale(1.03);
@@ -73,6 +68,7 @@
     </div>
   </div>
   <iframe id="appFrame"></iframe>
+
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyAMMq5-Kl-TQxWJaCG562k3Z7_pEQDBdV8kAlj5FqoYgm_2nal5Hmgvv0uRsg6snP8/exec";
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -83,6 +79,59 @@
     const frame = document.getElementById('appFrame');
     const loader = document.getElementById('gradient-loader');
 
+    // --- NEW: THE SAAS BACK-BUTTON TRAP ---
+    // This creates a history state that "traps" the hardware back button
+    function armBackTrap() {
+      if (window.history.state === null || window.history.state.path !== 'app') {
+        window.history.pushState({ path: 'app' }, '', '');
+      }
+    }
+
+    window.onpopstate = function(event) {
+      // Signal the internal Google Script to handle back-navigation (close modals/forms)
+      if (frame && frame.contentWindow) {
+        frame.contentWindow.postMessage('HARDWARE_BACK_CLICKED', '*');
+      }
+      // Re-arm the trap immediately to stay at the script level
+      armBackTrap();
+    };
+
+    // --- NEW: THE FAST-PASS RESUMPTION LOGIC ---
+    function checkResumption() {
+      const lastSession = sessionStorage.getItem('tenora_session_active');
+      // If active in the last 30 minutes, skip animations entirely
+      const isResuming = lastSession && (Date.now() - parseInt(lastSession) < 1800000);
+
+      if (isResuming) {
+        // Skip splash sequence for instant UI
+        loader.style.transition = 'none';
+        loader.style.display = 'none';
+        animationFinished = true;
+      } else {
+        // Run standard cinematic sequence
+        runCinematicSequence();
+      }
+      
+      // Update session activity
+      sessionStorage.setItem('tenora_session_active', Date.now().toString());
+    }
+
+    function runCinematicSequence() {
+      const tags = [document.getElementById('tag1'), document.getElementById('tag2'), document.getElementById('tag3')];
+      tags.forEach((tag, index) => {
+        setTimeout(() => { 
+          tag.classList.add('visible'); 
+          setTimeout(() => { tag.classList.add('floaty'); }, 1500);
+          if(index === 2) {
+            setTimeout(() => {
+              animationFinished = true;
+              checkReadyState();
+            }, 2000); 
+          }
+        }, 80 + (500 * index));
+      });
+    }
+
     // --- STEP 1: PARALLEL SCRIPT FETCH ---
     if (!isIOS) { 
       frame.src = SCRIPT_URL; 
@@ -90,52 +139,27 @@
         scriptLoaded = true;
         checkReadyState();
       };
+    } else {
+      // iOS Direct Path
+      setTimeout(() => { window.location.replace(SCRIPT_URL); }, 1500);
     }
 
-    // --- STEP 2: IMMEDIATE CINEMATIC ANIMATION ---
-    // Using DOMContentLoaded to ensure we start the millisecond the HTML is parsed
+    // --- STEP 2: INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', function() {
-      const tags = [document.getElementById('tag1'), document.getElementById('tag2'), document.getElementById('tag3')];
-    
-      // Start almost instantly (80ms) to take over from OS splash
-      tags.forEach((tag, index) => {
-        setTimeout(() => { 
-          tag.classList.add('visible'); 
-          
-          // Initiate floating 'breath' loop after words settle
-          setTimeout(() => { tag.classList.add('floaty'); }, 1500);
-
-          if(index === 2) {
-            // Wait 2 seconds after "Confidence" appears before allowing the hand-off
-            setTimeout(() => {
-              animationFinished = true;
-              checkReadyState();
-            }, 2000); 
-          }
-        }, 80 + (500 * index)); // 500ms stagger buys time for the iframe
-      });
-  
-      if (isIOS) {
-        // iOS standalone redirect logic
-        setTimeout(() => { window.location.replace(SCRIPT_URL); }, 1500);
-      }
+      armBackTrap();
+      checkResumption();
+      checkReadyState(); // Try early reveal if fast-pass is active
     });
 
     // --- STEP 3: THE SEAMLESS HAND-OFF ---
     function checkReadyState() {
-      // Requirements: Animation sequence completed AND Script has responded
       if (animationFinished && scriptLoaded) {
-        
-        // Cinematic cross-fade
         loader.style.opacity = "0";
         frame.classList.add('active');
-
-        // Clean the DOM after transition finishes
         setTimeout(() => {
           loader.style.display = "none";
         }, 1600);
       }
-      // Note: If script is slow, we simply hold on the 'Floaty' animation indefinitely
     }
   </script>
 </body>
