@@ -87,15 +87,28 @@
       }
     }
 
-    window.onpopstate = function(event) {
+     window.onpopstate = function(event) {
       // Signal the internal Google Script to handle back-navigation (close modals/forms)
       if (frame && frame.contentWindow) {
         frame.contentWindow.postMessage('HARDWARE_BACK_CLICKED', '*');
       }
-      // Re-arm the trap immediately to stay at the script level
+      // Re-arm the trap immediately so the user stays on this page
       armBackTrap();
     };
-
+  
+    // --- 2. THE SIGNAL RECEIVER ---
+    // Listens for messages coming UP from the Google Script iframe
+    window.addEventListener('message', function(event) {
+      // LOGOUT LOGIC: If the script says logout is happening, clear the 'Fast-Pass'
+      if (event.data === 'USER_LOGOUT_SIGNAL') {
+        console.log("Tenora Wrapper: Resetting session for fresh login.");
+        sessionStorage.removeItem('tenora_session_active');
+      }
+      
+      // FUTURE PROOF: You can add other signals here if needed 
+      // (e.g., trigger a phone vibration, change theme color, etc.)
+    });
+    
     // --- NEW: THE FAST-PASS RESUMPTION LOGIC ---
     function checkResumption() {
       const lastSession = sessionStorage.getItem('tenora_session_active');
