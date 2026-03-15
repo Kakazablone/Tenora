@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Tenora</title>
+  <!-- SEO & PWA Meta -->
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="Tenora Icon.jpg">
@@ -11,21 +12,20 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <style>
-    /* 1. BASE: White start to match OS Splash */
+    /* 1. BASE: Exactly as your original */
     body, html { 
       margin: 0; padding: 0; height: 100%; width: 100%; 
       overflow: hidden; background: #ffffff; 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
     }
 
-    /* 2. GRADIENT LOADER: The Primary Branding Layer */
+    /* 2. GRADIENT LOADER: Preserving your exact branding */
     #gradient-loader {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: linear-gradient(135deg, #2c3e50, #18bc9c) fixed;
       display: flex; align-items: center; justify-content: center;
       z-index: 100; 
-      /* Extra long transition for the final 'Ease In' */
-      transition: opacity 1.5s cubic-bezier(0.4, 0, 0.2, 1); 
+      transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1); 
     }
 
     .tagline-container { text-align: center; color: white; padding-bottom: 20px; }
@@ -39,14 +39,12 @@
       margin: 18px 0; 
       opacity: 0; 
       transform: translateY(20px);
-      /* Cinematic slow entrance */
       transition: opacity 1.5s ease-out, transform 1.2s cubic-bezier(0.2, 0, 0, 1); 
     }
     
-    /* Active State for Entrance */
     .tag.visible { opacity: 0.75; transform: translateY(0); }
 
-    /* 3. FLOAT ANIMATION: Visual 'Heartbeat' while waiting for Script */
+    /* 3. FLOAT ANIMATION: Heartbeat effect preserved */
     .tag.floaty {
       animation: floatBreath 4s ease-in-out infinite;
     }
@@ -55,14 +53,6 @@
       0%, 100% { transform: translateY(0); opacity: 0.75; }
       50% { transform: translateY(-6px); opacity: 0.95; }
     }
-
-    /* 4. THE LIVE APP: Scaled slightly for a zoom-out reveal */
-    iframe { 
-      position: absolute; top: 0; left: 0; border: none; width: 100vw; height: 100vh; 
-      z-index: 10; opacity: 0; transform: scale(1.03);
-      transition: opacity 1.5s ease, transform 1.5s cubic-bezier(0.2, 0, 0, 1);
-    }
-    iframe.active { opacity: 1; transform: scale(1); }
   </style>
 </head>
 <body>
@@ -75,72 +65,69 @@
     </div>
   </div>
 
-  <iframe id="appFrame"></iframe>
-
   <script>
+    /**
+     * CONFIGURATION
+     * We use window.location.replace() to "hand off" the user to the GAS app.
+     * This makes the GAS app the top-level window, enabling Pull-To-Refresh.
+     */
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxbVLsjS0MYUKjkaVVWUd49X6jrAuBaa2gn8BG6dPvasSYXSIKt3p-Z94phh4qsWY6s/exec";
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     
-    let animationFinished = false;
-    let scriptLoaded = false;
+    // Check if the user is returning from a session
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches;
 
-    const frame = document.getElementById('appFrame');
-    const loader = document.getElementById('gradient-loader');
-
-    // --- STEP 1: PARALLEL SCRIPT FETCH ---
-    if (!isIOS) { 
-      frame.src = SCRIPT_URL; 
-      frame.onload = () => {
-        scriptLoaded = true;
-        checkReadyState();
-      };
-    }
-
-    // --- STEP 2: IMMEDIATE CINEMATIC ANIMATION ---
-    // Using DOMContentLoaded to ensure we start the millisecond the HTML is parsed
     document.addEventListener('DOMContentLoaded', function() {
-      const tags = [document.getElementById('tag1'), document.getElementById('tag2'), document.getElementById('tag3')];
+      const tags = [
+        document.getElementById('tag1'), 
+        document.getElementById('tag2'), 
+        document.getElementById('tag3')
+      ];
     
-      // Start almost instantly (80ms) to take over from OS splash
+      // Start Cinematic Staggered Entrance
       tags.forEach((tag, index) => {
         setTimeout(() => { 
           tag.classList.add('visible'); 
           
-          // Initiate floating 'breath' loop after words settle
+          // Start the float animation
           setTimeout(() => { tag.classList.add('floaty'); }, 1500);
 
+          // If we have reached the last tag ("Confidence")
           if(index === 2) {
-            // Wait 2 seconds after "Confidence" appears before allowing the hand-off
+            // Wait 2 seconds for the user to see the full tagline
             setTimeout(() => {
-              animationFinished = true;
-              checkReadyState();
+              launchApp();
             }, 2000); 
           }
-        }, 80 + (500 * index)); // 500ms stagger buys time for the iframe
+        }, 80 + (500 * index)); 
       });
-  
-      if (isIOS) {
-        // iOS standalone redirect logic
-        setTimeout(() => { window.location.replace(SCRIPT_URL); }, 1500);
-      }
     });
 
-    // --- STEP 3: THE SEAMLESS HAND-OFF ---
-    function checkReadyState() {
-      // Requirements: Animation sequence completed AND Script has responded
-      if (animationFinished && scriptLoaded) {
-        
-        // Cinematic cross-fade
-        loader.style.opacity = "0";
-        frame.classList.add('active');
+    /**
+     * THE SEAMLESS HAND-OFF
+     * We fade out the loader and then redirect.
+     * Using location.replace ensures the "Loader" page is removed from history,
+     * so clicking "Back" or "Refresh" stays inside the GAS App.
+     */
+    function launchApp() {
+      const loader = document.getElementById('gradient-loader');
+      
+      // Begin fade out
+      loader.style.opacity = "0";
 
-        // Clean the DOM after transition finishes
-        setTimeout(() => {
-          loader.style.display = "none";
-        }, 1600);
-      }
-      // Note: If script is slow, we simply hold on the 'Floaty' animation indefinitely
+      // Execute redirect after fade starts
+      setTimeout(() => {
+        // .replace is critical: it prevents the "back button" loop
+        window.location.replace(SCRIPT_URL);
+      }, 1000);
     }
+
+    // Backup: If for some reason the animation fails to trigger the redirect
+    // (e.g. background tab), force redirect after 8 seconds.
+    setTimeout(() => {
+       if (window.location.href.indexOf('github.io') > -1) {
+          window.location.replace(SCRIPT_URL);
+       }
+    }, 8000);
   </script>
 </body>
 </html>
