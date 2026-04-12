@@ -135,29 +135,28 @@
      * them to the GAS backend. This is the 'Bridge' that allows ?mode=sign to work.
      */
     function loadScript() {
-      // 1. Capture the parameters from the browser address bar (e.g. ?mode=sign&u=A1)
-      // If there are no parameters, this is just an empty string.
       const queryString = window.location.search; 
-      
-      // 2. Append the parameters to your SCRIPT_URL
       const finalUrl = SCRIPT_URL + queryString;
 
       if (!isIOS) { 
-        // Forward parameters into the Iframe
         frame.src = finalUrl; 
         frame.onload = () => {
           scriptLoaded = true;
           if (typeof checkReadyState === 'function') checkReadyState();
+          
+          // --- THE SAAS FIX: PARAMETER PUSH ---
+          // We physically send the parameters to the script via postMessage
+          // This acts as a backup in case the URL was stripped by Google.
+          if (queryString && frame.contentWindow) {
+            console.log("Tenora Wrapper: Pushing parameters to script...");
+            frame.contentWindow.postMessage({
+              type: 'URL_PARAMS_SYNC',
+              params: queryString
+            }, '*');
+          }
         };
       } else {
-        /**
-         * iOS Direct Path
-         * Note: On iOS, we use a slight delay to allow the 'Control, Clarity' 
-         * animation to play before the physical page redirect happens.
-         */
-        setTimeout(() => { 
-          window.location.replace(finalUrl); 
-        }, 1200); 
+        setTimeout(() => { window.location.replace(finalUrl); }, 1200); 
       }
     }
 
@@ -188,15 +187,22 @@
     });
 
     // --- STEP 3: THE SEAMLESS HAND-OFF ---
-    function checkReadyState() {
+   function checkReadyState() {
       if (animationFinished && scriptLoaded) {
         loader.style.opacity = "0";
         frame.classList.add('active');
         setTimeout(() => {
           loader.style.display = "none";
+          
+          // Re-send the parameters after the reveal to ensure the UI catches them
+          const queryString = window.location.search;
+          if (queryString && frame.contentWindow) {
+            frame.contentWindow.postMessage({ type: 'URL_PARAMS_SYNC', params: queryString }, '*');
+          }
         }, 1600);
       }
     }
+
   </script>
 </body>
 </html>
