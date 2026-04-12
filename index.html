@@ -129,6 +129,38 @@
       sessionStorage.setItem('tenora_session_active', Date.now().toString());
     }
 
+    /**
+     * LOAD SCRIPT
+     * SaaS Logic: Captures URL parameters from the GitHub wrapper and forwards 
+     * them to the GAS backend. This is the 'Bridge' that allows ?mode=sign to work.
+     */
+    function loadScript() {
+      // 1. Capture the parameters from the browser address bar (e.g. ?mode=sign&u=A1)
+      // If there are no parameters, this is just an empty string.
+      const queryString = window.location.search; 
+      
+      // 2. Append the parameters to your SCRIPT_URL
+      const finalUrl = SCRIPT_URL + queryString;
+
+      if (!isIOS) { 
+        // Forward parameters into the Iframe
+        frame.src = finalUrl; 
+        frame.onload = () => {
+          scriptLoaded = true;
+          if (typeof checkReadyState === 'function') checkReadyState();
+        };
+      } else {
+        /**
+         * iOS Direct Path
+         * Note: On iOS, we use a slight delay to allow the 'Control, Clarity' 
+         * animation to play before the physical page redirect happens.
+         */
+        setTimeout(() => { 
+          window.location.replace(finalUrl); 
+        }, 1200); 
+      }
+    }
+
     function runCinematicSequence() {
       const tags = [document.getElementById('tag1'), document.getElementById('tag2'), document.getElementById('tag3')];
       tags.forEach((tag, index) => {
@@ -146,16 +178,7 @@
     }
 
     // --- STEP 1: PARALLEL SCRIPT FETCH ---
-    if (!isIOS) { 
-      frame.src = SCRIPT_URL; 
-      frame.onload = () => {
-        scriptLoaded = true;
-        checkReadyState();
-      };
-    } else {
-      // iOS Direct Path
-      setTimeout(() => { window.location.replace(SCRIPT_URL); }, 1500);
-    }
+    loadScript()
 
     // --- STEP 2: INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', function() {
