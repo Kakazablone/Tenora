@@ -70,7 +70,7 @@
   <iframe id="appFrame"></iframe>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxj26xIArLfiZQ25YYAoEsVUI54BR5P96EVEWxEMFI5F2VPRS0eOp9zfYSp9JISTcBG/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbydQfLADbBo2wv4f7Vwogl0Ly5ijfQM6tPt4dedoqI2xbt9PgyCzMfDiBF6dvFyYv58/exec";
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     
     let animationFinished = false;
@@ -148,30 +148,25 @@
      */
     function loadScript() {
       const queryString = window.location.search; 
-      const finalUrl = SCRIPT_URL + queryString;
-
-      if (!isIOS) { 
-        frame.src = finalUrl; 
+      const urlParams = new URLSearchParams(queryString);
+      const isTenant = urlParams.get('mode') === 'sign';
+    
+      // If Tenant or iOS: Direct Redirect (Reliable)
+      if (isTenant || isIOS) { 
+        console.log("Tenora: Tenant/iOS detected. Executing direct breakout...");
+        // Use replace to prevent the user from getting stuck in a back-button loop
+        window.location.replace(SCRIPT_URL + queryString);
+      } 
+      // If Caretaker: Stay in the Iframe (Branded Wrapper)
+      else {
+        frame.src = SCRIPT_URL; 
         frame.onload = () => {
           scriptLoaded = true;
           if (typeof checkReadyState === 'function') checkReadyState();
-          
-          // --- THE SAAS FIX: PARAMETER PUSH ---
-          // We physically send the parameters to the script via postMessage
-          // This acts as a backup in case the URL was stripped by Google.
-          if (queryString && frame.contentWindow) {
-            console.log("Tenora Wrapper: Pushing parameters to script...");
-            frame.contentWindow.postMessage({
-              type: 'URL_PARAMS_SYNC',
-              params: queryString
-            }, '*');
-          }
         };
-      } else {
-        setTimeout(() => { window.location.replace(finalUrl); }, 1200); 
       }
     }
-
+    
     function runCinematicSequence() {
       const tags = [document.getElementById('tag1'), document.getElementById('tag2'), document.getElementById('tag3')];
       tags.forEach((tag, index) => {
