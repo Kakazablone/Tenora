@@ -70,7 +70,7 @@
   <iframe id="appFrame"></iframe>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz6wawYFEYYGbA9CT1XousyB6PzZeB_EfTuiPN01RveOVEwEadIB9zXayf-MfNO7w/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby1xk8-eMitIdsWZmwZHXGse1639CV0JJzMd5qy8hvEiCknSMBVBcWJ-MdjpqYg09Tu/exec";
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     
     let animationFinished = false;
@@ -99,6 +99,18 @@
     // --- 2. THE SIGNAL RECEIVER ---
     // Listens for messages coming UP from the Google Script iframe
     window.addEventListener('message', function(event) {
+      // 1. Listen for the app telling us it is ready
+      if (event.data === 'TENORA_APP_READY') {
+        const queryString = window.location.search;
+        if (queryString && frame.contentWindow) {
+          console.log("Tenora Wrapper: App is ready. Vending parameters...");
+          frame.contentWindow.postMessage({
+            type: 'URL_PARAMS_SYNC',
+            params: queryString
+          }, '*');
+        }
+      }
+      
       // LOGOUT LOGIC: If the script says logout is happening, clear the 'Fast-Pass'
       if (event.data === 'USER_LOGOUT_SIGNAL') {
         console.log("Tenora Wrapper: Resetting session for fresh login.");
