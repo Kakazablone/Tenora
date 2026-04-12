@@ -70,7 +70,7 @@
   <iframe id="appFrame"></iframe>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzu1obUQn3JVOHaFcbTHDjoE3Qb0Sk_SNAUMeXhJn7o0Dm1jMieZpLJAK6NBNeW9R4D/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwLIyPvIv_sw_0EjViSE927o2wk1jQrkCHF-C2_PI_MKRrHjWroWoThHhV-Pt2ySs5f/exec";
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     
     let animationFinished = false;
@@ -151,14 +151,11 @@
       const urlParams = new URLSearchParams(queryString);
       const isTenant = urlParams.get('mode') === 'sign';
     
-      // If Tenant or iOS: Direct Redirect (Reliable)
       if (isTenant || isIOS) { 
-        console.log("Tenora: Tenant/iOS detected. Executing direct breakout...");
-        // Use replace to prevent the user from getting stuck in a back-button loop
+        // BREAKOUT: Top-level navigation for tenants (Guarantees reliability)
         window.location.replace(SCRIPT_URL + queryString);
-      } 
-      // If Caretaker: Stay in the Iframe (Branded Wrapper)
-      else {
+      } else {
+        // WRAPPER: Iframe for caretakers
         frame.src = SCRIPT_URL; 
         frame.onload = () => {
           scriptLoaded = true;
