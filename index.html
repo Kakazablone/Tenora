@@ -10,14 +10,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <style>
-    /* 1. BASE: White start to match OS Splash */
+    /* 1. BASE: Match brand dark to hide any gaps */
     body, html { 
       margin: 0; padding: 0; height: 100%; width: 100%; 
-      overflow: hidden; background: #ffffff; 
+      overflow: hidden; background: #2c3e50; 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
     }
 
-    /* 2. GRADIENT LOADER: The Primary Branding Layer */
+    /* 2. GRADIENT LOADER */
     #gradient-loader {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: linear-gradient(135deg, #2c3e50, #18bc9c) fixed;
@@ -29,31 +29,25 @@
     .tagline-container { text-align: center; color: white; padding-bottom: 20px; }
     
     .tag {
-      display: block; 
-      font-size: 13px; 
-      font-weight: 300; 
-      letter-spacing: 0.5em;
-      text-transform: uppercase; 
-      margin: 18px 0; 
-      opacity: 0; 
+      display: block; font-size: 13px; font-weight: 300; letter-spacing: 0.5em;
+      text-transform: uppercase; margin: 18px 0; opacity: 0; 
       transform: translateY(20px);
       transition: opacity 1.5s ease-out, transform 1.2s cubic-bezier(0.2, 0, 0, 1); 
     }
     
     .tag.visible { opacity: 0.75; transform: translateY(0); }
-
-    .tag.floaty {
-      animation: floatBreath 4s ease-in-out infinite;
-    }
+    .tag.floaty { animation: floatBreath 4s ease-in-out infinite; }
 
     @keyframes floatBreath {
       0%, 100% { transform: translateY(0); opacity: 0.75; }
       50% { transform: translateY(-6px); opacity: 0.95; }
     }
 
+    /* 3. IFRAME: Starts hidden and scaled */
     iframe { 
       position: absolute; top: 0; left: 0; border: none; width: 100vw; height: 100vh; 
       z-index: 10; opacity: 0; transform: scale(1.03);
+      background: #2c3e50; /* Match background */
       transition: opacity 1.5s ease, transform 1.5s cubic-bezier(0.2, 0, 0, 1);
     }
     iframe.active { opacity: 1; transform: scale(1); }
@@ -70,100 +64,65 @@
   <iframe id="appFrame"></iframe>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzhpaQHFumYsq7j0TqLPgSMYXNYtSIxVQYm2eo9Jc4Fn_riyhYUCB3Ba5ytPgPLgRfk/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwd779Y8ChKo_7AzOKmYmjPilyL8NATiW7oZhc9PNRGIsacsvvE0r6gG1_yavjtDVP9/exec";
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     
     let animationFinished = false;
     let scriptLoaded = false;
+    let gasReadySignalReceived = false; // THE MASTER LOCK
 
     const frame = document.getElementById('appFrame');
     const loader = document.getElementById('gradient-loader');
 
-    // --- NEW: THE SAAS BACK-BUTTON TRAP ---
-    // This creates a history state that "traps" the hardware back button
-    function armBackTrap() {
-      if (window.history.state === null || window.history.state.path !== 'app') {
-        window.history.pushState({ path: 'app' }, '', '');
-      }
-    }
-
-     window.onpopstate = function(event) {
-      // Signal the internal Google Script to handle back-navigation (close modals/forms)
-      if (frame && frame.contentWindow) {
-        frame.contentWindow.postMessage('HARDWARE_BACK_CLICKED', '*');
-      }
-      // Re-arm the trap immediately so the user stays on this page
-      armBackTrap();
-    };
-  
-    // --- 2. THE SIGNAL RECEIVER ---
-    // Listens for messages coming UP from the Google Script iframe
+    // --- 1. THE SIGNAL RECEIVER ---
     window.addEventListener('message', function(event) {
-      // 1. Listen for the app telling us it is ready
       if (event.data === 'TENORA_APP_READY') {
+        console.log("Wrapper: GAS Signal Received.");
+        gasReadySignalReceived = true;
+        
+        // Push params as usual
         const queryString = window.location.search;
         if (queryString && frame.contentWindow) {
-          console.log("Tenora Wrapper: App is ready. Vending parameters...");
-          frame.contentWindow.postMessage({
-            type: 'URL_PARAMS_SYNC',
-            params: queryString
-          }, '*');
+          frame.contentWindow.postMessage({ type: 'URL_PARAMS_SYNC', params: queryString }, '*');
         }
+        
+        // CHECK FOR REVEAL
+        checkReadyState();
       }
-      
-      // LOGOUT LOGIC: If the script says logout is happening, clear the 'Fast-Pass'
+
       if (event.data === 'USER_LOGOUT_SIGNAL') {
-        console.log("Tenora Wrapper: Resetting session for fresh login.");
         sessionStorage.removeItem('tenora_session_active');
       }
-      
-      // FUTURE PROOF: You can add other signals here if needed 
-      // (e.g., trigger a phone vibration, change theme color, etc.)
     });
     
-    // --- NEW: THE FAST-PASS RESUMPTION LOGIC ---
-    function checkResumption() {
-      const lastSession = sessionStorage.getItem('tenora_session_active');
-      // If active in the last 30 minutes, skip animations entirely
-      const isResuming = lastSession && (Date.now() - parseInt(lastSession) < 1800000);
-
-      if (isResuming) {
-        // Skip splash sequence for instant UI
-        loader.style.transition = 'none';
-        loader.style.display = 'none';
-        animationFinished = true;
-      } else {
-        // Run standard cinematic sequence
-        runCinematicSequence();
-      }
-      
-      // Update session activity
-      sessionStorage.setItem('tenora_session_active', Date.now().toString());
-    }
-
-    /**
-     * LOAD SCRIPT
-     * SaaS Logic: Captures URL parameters from the GitHub wrapper and forwards 
-     * them to the GAS backend. This is the 'Bridge' that allows ?mode=sign to work.
-     */
+    // --- 2. SCRIPT LOADING ---
     function loadScript() {
       const queryString = window.location.search; 
       const urlParams = new URLSearchParams(queryString);
       const isTenant = urlParams.get('mode') === 'sign';
     
       if (isTenant || isIOS) { 
-        // BREAKOUT: Top-level navigation for tenants (Guarantees reliability)
         window.location.replace(SCRIPT_URL + queryString);
       } else {
-        // WRAPPER: Iframe for caretakers
         frame.src = SCRIPT_URL; 
         frame.onload = () => {
           scriptLoaded = true;
-          if (typeof checkReadyState === 'function') checkReadyState();
+          // Note: We no longer call checkReadyState here. 
+          // We wait for the message from inside the GAS app instead.
+          
+          // SAFETY FALLBACK: If GAS crashes, reveal in 7 seconds
+          setTimeout(() => {
+            if (!gasReadySignalReceived) {
+              console.warn("Wrapper: Signal Timeout. Forcing Reveal.");
+              gasReadySignalReceived = true;
+              checkReadyState();
+            }
+          }, 7000);
         };
       }
     }
     
+    // --- 3. ANIMATION SEQUENCE ---
     function runCinematicSequence() {
       const tags = [document.getElementById('tag1'), document.getElementById('tag2'), document.getElementById('tag3')];
       tags.forEach((tag, index) => {
@@ -172,6 +131,7 @@
           setTimeout(() => { tag.classList.add('floaty'); }, 1500);
           if(index === 2) {
             setTimeout(() => {
+              console.log("Wrapper: Animation sequence finished.");
               animationFinished = true;
               checkReadyState();
             }, 2000); 
@@ -180,33 +140,37 @@
       });
     }
 
-    // --- STEP 1: PARALLEL SCRIPT FETCH ---
-    loadScript()
-
-    // --- STEP 2: INITIALIZATION ---
-    document.addEventListener('DOMContentLoaded', function() {
-      armBackTrap();
-      checkResumption();
-      checkReadyState(); // Try early reveal if fast-pass is active
-    });
-
-    // --- STEP 3: THE SEAMLESS HAND-OFF ---
-   function checkReadyState() {
-      if (animationFinished && scriptLoaded) {
+    // --- 4. THE HAND-OFF LOGIC ---
+    function checkReadyState() {
+      // THE DEPENDENCY LOCK: Both MUST be true
+      if (animationFinished && gasReadySignalReceived) {
         loader.style.opacity = "0";
         frame.classList.add('active');
         setTimeout(() => {
           loader.style.display = "none";
-          
-          // Re-send the parameters after the reveal to ensure the UI catches them
-          const queryString = window.location.search;
-          if (queryString && frame.contentWindow) {
-            frame.contentWindow.postMessage({ type: 'URL_PARAMS_SYNC', params: queryString }, '*');
-          }
         }, 1600);
       }
     }
 
+    // --- 5. INITIALIZATION ---
+    function checkResumption() {
+      const lastSession = sessionStorage.getItem('tenora_session_active');
+      const isResuming = lastSession && (Date.now() - parseInt(lastSession) < 1800000);
+      if (isResuming) {
+        loader.style.display = 'none';
+        animationFinished = true;
+        gasReadySignalReceived = true; // Skip lock on refresh
+      } else {
+        runCinematicSequence();
+      }
+      sessionStorage.setItem('tenora_session_active', Date.now().toString());
+    }
+
+    loadScript();
+    document.addEventListener('DOMContentLoaded', () => {
+      checkResumption();
+      checkReadyState(); 
+    });
   </script>
 </body>
 </html>
